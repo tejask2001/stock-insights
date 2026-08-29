@@ -8,10 +8,10 @@
     "build": "npm --prefix client install && npm --prefix client run build"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "pg": "^8.11.5",
-    "node-fetch": "^3.3.2"
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.11.5"
   }
 }
