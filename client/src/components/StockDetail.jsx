@@ -72,14 +72,14 @@ export default function StockDetail({ symbol, data, onBack }) {
         <div className="card chart">
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#222" />
-              <XAxis dataKey="date" tick={{ fill: '#999', fontSize: 11 }} minTickGap={30} />
-              <YAxis domain={['auto', 'auto']} tick={{ fill: '#999', fontSize: 11 }} width={60} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="date" tick={{ fill: 'var(--chart-tick)', fontSize: 11 }} minTickGap={30} />
+              <YAxis domain={['auto', 'auto']} tick={{ fill: 'var(--chart-tick)', fontSize: 11 }} width={60} />
               <Tooltip
-                contentStyle={{ background: '#16181d', border: '1px solid #2a2d34', borderRadius: 8 }}
-                labelStyle={{ color: '#ccc' }}
+                contentStyle={{ background: 'var(--tooltip-bg)', border: '1px solid var(--tooltip-border)', borderRadius: 8 }}
+                labelStyle={{ color: 'var(--tooltip-label)' }}
               />
-              <Area type="monotone" dataKey="close" stroke="#22c55e" fill="#22c55e" fillOpacity={0.08} name="Close" />
+              <Area type="monotone" dataKey="close" stroke="#22c55e" fill="var(--green)" fillOpacity={0.08} name="Close" />
               <Line type="monotone" dataKey="sma20" stroke="#f59e0b" dot={false} strokeDasharray="4 4" name="SMA20" />
             </ComposedChart>
           </ResponsiveContainer>

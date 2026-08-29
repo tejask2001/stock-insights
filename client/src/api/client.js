@@ -1,7 +1,14 @@
 const BASE = '/api';
 
-async function get(path) {
-  const res = await fetch(`${BASE}${path}`);
+function bust() {
+  return `_=${Date.now()}`;
+}
+
+async function get(path, force) {
+  const sep = path.includes('?') ? '&' : '?';
+  const res = await fetch(
+    `${BASE}${path}${force ? `${sep}${bust()}` : ''}`
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed (${res.status})`);
@@ -9,12 +16,12 @@ async function get(path) {
   return res.json();
 }
 
-export function fetchOverview() {
-  return get('/market/overview');
+export function fetchOverview(force = false) {
+  return get('/market/overview', force);
 }
 
-export function fetchStock(symbol) {
-  return get(`/stock/${encodeURIComponent(symbol)}`);
+export function fetchStock(symbol, force = false) {
+  return get(`/stock/${encodeURIComponent(symbol)}`, force);
 }
 
 export function searchStock(query) {

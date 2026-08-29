@@ -10,34 +10,56 @@ export default function App() {
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [stockData, setStockData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem('si-theme') || 'dark'
+  );
 
-  const loadOverview = useCallback(async () => {
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('si-theme', theme);
+  }, [theme]);
+
+  const loadOverview = useCallback(async (force) => {
+    if (force) setRefreshing(true);
     setError(null);
     try {
-      const data = await fetchOverview();
+      const data = await fetchOverview(force);
       setOverview(data);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     loadOverview();
-  }, [loadOverview, refreshKey]);
+  }, [loadOverview]);
 
   useEffect(() => {
     if (!selectedSymbol) return;
     setStockData(null);
-    setError(null);
-    fetchStock(selectedSymbol)
+    fetchStock(selectedSymbol, true)
       .then(setStockData)
       .catch((e) => setError(e.message));
   }, [selectedSymbol]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    if (view === 'detail' && selectedSymbol) {
+      setError(null);
+      fetchStock(selectedSymbol, true)
+        .then(setStockData)
+        .catch((e) => setError(e.message))
+        .finally(() => setRefreshing(false));
+    } else {
+      loadOverview(true);
+    }
+  };
 
   const openStock = (symbol) => {
     setSelectedSymbol(symbol);
@@ -77,8 +99,21 @@ export default function App() {
           onLoading={setSearchLoading}
           onError={setError}
         />
-        <button className="refresh" onClick={() => setRefreshKey((k) => k + 1)}>
-          ⟳ Refresh
+        <button
+          className="refresh"
+          onClick={refresh}
+          disabled={refreshing}
+          aria-busy={refreshing}
+        >
+          {refreshing ? '⟳ Refreshing…' : '⟳ Refresh'}
+        </button>
+        <button
+          className="theme-toggle"
+          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle color theme"
+        >
+          {theme === 'dark' ? '☀' : '☾'}
         </button>
       </header>
 
