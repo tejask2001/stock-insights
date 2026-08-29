@@ -1,25 +1,60 @@
 import { fetchDaily } from './yahoo.js';
 import { analyze } from './analysis.js';
+import { scoreStock } from './scoring.js';
+import { computeRelativeStrength } from './rs.js';
+import { fetchFundamentals } from './fundamentals.js';
 import { saveStock, loadStock } from '../lib/store.js';
 import { WATCHLIST } from './watchlist.js';
 import { config } from '../config.js';
 
 const cache = new Map(); // symbol -> { fetchedAt, data }
 
-export async function getStockAnalysis(symbol, { force = false } = {}) {
+function baseAnalysis(raw) {
+  const analysis = analyze(raw.candles);
+  return {
+    ...raw,
+    analysis,
+  };
+}
+
+async function computeScore(data) {
+  const [relative, fundamentals] = await Promise.all([
+    computeRelativeStrength({ candles: data.candles, symbol: data.symbol }),
+    fetchFundamentals(data.symbol).catch(() => null),
+  ]);
+  const relMap = new Map([
+    ['nifty', relative.nifty || {}],
+    ['sector', relative.sector || {}],
+  ]);
+  const score = scoreStock({
+    cur: data.analysis.indicators,
+    trend: data.analysis.trend,
+    relative: relMap,
+    fundamentals: fundamentals || {},
+  });
+  return { score, fundamentals: fundamentals || null, relative };
+}
+
+export async function getStockAnalysis(symbol, { force = false, includeScore = false } = {}) {
   const now = Date.now();
   const cached = cache.get(symbol);
   if (!force && cached && now - cached.fetchedAt < config.dataRefreshMs) {
+    if (includeScore && !cached.data.score) {
+      // Cached copy came from the no-score universe scan; rebuild the score
+      // so the detail view can render the composite scorecard.
+      const enriched = { ...cached.data, ...(await computeScore(cached.data)) };
+      cache.set(symbol, { fetchedAt: cached.fetchedAt, data: enriched });
+      return enriched;
+    }
     return cached.data;
   }
 
   const raw = await fetchDaily(symbol);
-  const analysis = analyze(raw.candles);
+  let data = baseAnalysis(raw);
 
-  const data = {
-    ...raw,
-    analysis,
-  };
+  if (includeScore) {
+    data = { ...data, ...(await computeScore(data)) };
+  }
 
   cache.set(symbol, { fetchedAt: now, data });
   try {

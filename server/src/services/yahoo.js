@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 // e.g. RELIANCE.NS, TCS.BO, INFY.NS
 // No API key required for the chart endpoint.
 
-const RANGE = '6mo';
+const RANGE = '1y';
 const INTERVAL = '1d';
 
 export async function fetchDaily(symbol, range = RANGE, interval = INTERVAL) {

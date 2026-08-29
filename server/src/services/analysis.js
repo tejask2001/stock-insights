@@ -16,11 +16,13 @@ export function analyze(candles) {
 
   const sma20 = sma(closes, 20);
   const sma50 = sma(closes, 50);
+  const sma200 = sma(closes, 200);
   const ema9 = ema(closes, 9);
   const ema21 = ema(closes, 21);
 
   const rsi14 = rsi(closes, 14);
   const { macdLine, signalLine, histogram } = macd(closes, 12, 26, 9);
+  const adx14 = adx(candles, 14);
   const momentum14 = momentum(closes, 14);
   const roc10 = roc(closes, 10);
 
@@ -29,20 +31,31 @@ export function analyze(candles) {
 
   const { support, resistance } = supportResistance(highs, lows, closes);
 
+  const returns = {
+    ret20: pctReturn(closes, 20),
+    ret50: pctReturn(closes, 50),
+    ret200: pctReturn(closes, 200),
+  };
+
   const avgVolume = average(volumes.slice(-20));
+  const avgVolume30 = average(volumes.slice(-30));
   const volumeSpike =
     avgVolume > 0 && volumes[last] > avgVolume * 1.5;
+  const relativeVolume =
+    avgVolume30 > 0 ? volumes[last] / avgVolume30 : null;
 
   const current = {
     price,
     sma20: sma20[last],
     sma50: sma50[last],
+    sma200: sma200[last],
     ema9: ema9[last],
     ema21: ema21[last],
     rsi: rsi14[last],
     macd: macdLine[last],
     macdSignal: signalLine[last],
     macdHistogram: histogram[last],
+    adx: adx14,
     momentum: momentum14[last],
     roc: roc10[last],
     atr: atr14,
@@ -51,6 +64,8 @@ export function analyze(candles) {
     resistance,
     avgVolume,
     volumeSpike,
+    relativeVolume,
+    returns,
   };
 
   const trend = trendAnalysis(candles, current);
@@ -165,6 +180,75 @@ function roc(data, period = 10) {
     out[i] = base ? ((data[i] - base) / base) * 100 : null;
   }
   return out;
+}
+
+function pctReturn(data, period) {
+  if (data.length <= period) return null;
+  const base = data[data.length - 1 - period];
+  if (base) return ((data[data.length - 1] - base) / base) * 100;
+  return null;
+}
+
+// Wilder-smoothed Average Directional Index (ADX) over `period` bars.
+function adx(candles, period = 14) {
+  const n = candles.length;
+  if (n < period * 2) return null;
+  const tr = new Array(n).fill(0);
+  const plusDM = new Array(n).fill(0);
+  const minusDM = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const h = candles[i].high, l = candles[i].low;
+    const pc = candles[i - 1].close, ph = candles[i - 1].high, pl = candles[i - 1].low;
+    tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    const up = h - ph;
+    const dn = pl - l;
+    plusDM[i] = up > dn && up > 0 ? up : 0;
+    minusDM[i] = dn > up && dn > 0 ? dn : 0;
+  }
+
+  // Wilder's RMA (start with a simple average, then smooth).
+  const rma = (arr, start) => {
+    const out = new Array(n).fill(null);
+    let v = 0;
+    for (let i = start; i < period + start; i++) v += arr[i];
+    v /= period;
+    out[period + start - 1] = v;
+    for (let i = period + start; i < n; i++) {
+      v = (v * (period - 1) + arr[i]) / period;
+      out[i] = v;
+    }
+    return out;
+  };
+
+  const trS = rma(tr, 1);
+  const pS = rma(plusDM, 1);
+  const mS = rma(minusDM, 1);
+
+  // Build DX series
+  const dx = new Array(n).fill(null);
+  for (let i = period; i < n; i++) {
+    const denom = trS[i];
+    if (!denom) continue;
+    const pDI = (pS[i] / denom) * 100;
+    const mDI = (mS[i] / denom) * 100;
+    const s = pDI + mDI;
+    if (s === 0) continue;
+    dx[i] = (Math.abs(pDI - mDI) / s) * 100;
+  }
+
+  // ADX = RMA of DX, starting from the first non-null DX.
+  let start = period;
+  while (start < n && dx[start] == null) start++;
+  if (start + period >= n) {
+    // fall back to simple average if too few points
+    const vals = dx.filter((v) => v != null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }
+  let adxVal = 0;
+  for (let i = start; i < start + period; i++) adxVal += dx[i];
+  adxVal /= period;
+  for (let i = start + period; i < n; i++) adxVal = (adxVal * (period - 1) + dx[i]) / period;
+  return adxVal;
 }
 
 function atr(candles, period = 14) {

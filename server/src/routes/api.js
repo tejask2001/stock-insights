@@ -55,12 +55,12 @@ router.get('/market/overview', async (req, res) => {
   }
 });
 
-// Single stock detail with full analysis
+// Single stock detail with full analysis + composite score
 router.get('/stock/:symbol', async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
   const force = req.query.force === '1';
   try {
-    const data = await getStockAnalysis(symbol, { force });
+    const data = await getStockAnalysis(symbol, { force, includeScore: true });
     res.json(data);
   } catch (e) {
     res.status(404).json({ error: `Could not load "${symbol}": ${e.message}` });
@@ -95,7 +95,7 @@ router.get('/search', async (req, res) => {
   let lastErr = null;
   for (const sym of candidates) {
     try {
-      const data = await getStockAnalysis(sym, { force: req.query.force === '1' });
+      const data = await getStockAnalysis(sym, { force: req.query.force === '1', includeScore: true });
       const stockMeta = WATCHLIST.find((s) => s.symbol === sym) || {};
       return res.json({
         ...data,

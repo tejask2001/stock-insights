@@ -68,7 +68,7 @@ export default function StockDetail({ symbol, data, onBack }) {
 
       {/* Chart */}
       <section>
-        <h2>Price history (6 months) vs 20-day SMA</h2>
+        <h2>Price history (1 year) vs 20-day SMA</h2>
         <div className="card chart">
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={chartData}>
@@ -153,6 +153,96 @@ export default function StockDetail({ symbol, data, onBack }) {
         </div>
       </section>
 
+      {data.score && (
+        <>
+          {/* Composite score */}
+          <section>
+            <h2>Composite score (0-100)</h2>
+            <div className="card">
+              <div className="score-head">
+                <div className="score-big">{data.score.overall ?? '—'}</div>
+                <div className="score-rating">{data.score.rating}</div>
+                <div className="score-factors muted small">
+                  Strongest: {data.score.strongest ? `${data.score.strongest.name} (${Math.round(data.score.strongest.score)})` : '—'}
+                  {' · '}
+                  Weakest: {data.score.weakest ? `${data.score.weakest.name} (${Math.round(data.score.weakest.score)})` : '—'}
+                </div>
+              </div>
+
+              {data.score.categories.map((cat) => (
+                <div className="cat" key={cat.group}>
+                  <div className="cat-head">
+                    <span className="cat-name">{cat.group}</span>
+                    <span className="cat-score">
+                      {cat.score != null ? Math.round(cat.score) : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bar">
+                    <div
+                      className="bar-fill"
+                      style={{ width: `${cat.score != null ? cat.score : 0}%` }}
+                    />
+                  </div>
+                  <div className="cat-params">
+                    {cat.params.map((p) => (
+                      <div className="cat-param" key={p.name}>
+                        <span className="muted small">{p.name}</span>
+                        <span>
+                          {p.score != null ? Math.round(p.score) : 'N/A'}
+                          {p.value ? ` (${p.value})` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 30-day probability outlook */}
+          {data.score.outlook && (
+            <section>
+              <h2>30-trading-day probability outlook</h2>
+              <div className="card">
+                <div className="outlook-row">
+                  <div>Bias: <b>{data.score.outlook.bias}</b></div>
+                  <div>Conviction: <b>{data.score.outlook.conviction}</b></div>
+                  <div>Expected price: <b>₹{data.score.outlook.expectedPrice ?? '—'}</b> ({fmtPct(data.score.outlook.expectedReturnPct)})</div>
+                </div>
+                <div className="muted" style={{ marginTop: 8 }}>
+                  Projected range: ₹{data.score.outlook.projectedRange?.low ?? '—'} – ₹{data.score.outlook.projectedRange?.high ?? '—'}
+                </div>
+                <p className="sum-text">{data.score.outlook.headline}</p>
+
+                <div className="prob">
+                  <div className={`prob-cell prob-up`}>
+                    <div className="prob-label">Up</div>
+                    <div className="prob-val">{pctProb(data.score.outlook.probability?.up)}</div>
+                  </div>
+                  <div className={`prob-cell prob-flat`}>
+                    <div className="prob-label">Flat</div>
+                    <div className="prob-val">{pctProb(data.score.outlook.probability?.flat)}</div>
+                  </div>
+                  <div className={`prob-cell prob-down`}>
+                    <div className="prob-label">Down</div>
+                    <div className="prob-val">{pctProb(data.score.outlook.probability?.down)}</div>
+                  </div>
+                </div>
+
+                <h3 className="muted small" style={{ margin: '14px 0 6px' }}>Key risks</h3>
+                <ul className="reasons">
+                  {(data.score.outlook.risks || []).map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+                <h3 className="muted small" style={{ margin: '14px 0 6px' }}>Assumptions</h3>
+                <ul className="reasons">
+                  {(data.score.assumptions || []).map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
       <div className="muted small note">
         Analysis is generated from technical indicators on historical price
         data and is informational only — not investment advice.
@@ -180,4 +270,14 @@ function sign(a, b) {
 function pctFrom(price, base) {
   if (price == null || base == null || base === 0) return '—';
   return ((price - base) / base) * 100;
+}
+
+function fmtPct(v) {
+  if (v == null) return '—';
+  return `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+}
+
+function pctProb(v) {
+  if (v == null) return '—';
+  return `${(v * 100).toFixed(0)}%`;
 }
