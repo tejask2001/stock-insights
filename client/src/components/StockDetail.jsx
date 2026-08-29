@@ -97,7 +97,6 @@ export default function StockDetail({ symbol, data, onBack }) {
             <div className="label">
               Confidence: {sig.confidence} (score {sig.score})
             </div>
-            <div className="muted">{proj.summary}</div>
             <ul className="reasons">
               {sig.reasons?.map((r, i) => (
                 <li key={i}>{r}</li>
@@ -138,7 +137,6 @@ export default function StockDetail({ symbol, data, onBack }) {
               </b>
             </div>
           </div>
-          <div className="muted" style={{ marginTop: 10 }}>{proj.summary}</div>
         </div>
       </section>
 
