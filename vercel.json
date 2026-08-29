@@ -1,22 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "buildCommand": "npm run build",
   "builds": [
     {
       "src": "api/index.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
     }
   ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "client/dist/**"
+    }
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "api/index.js" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "/(.*)", "dest": "api/index.js" }
   ]
 }

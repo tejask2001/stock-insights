@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "BSE/NSE stock insights, trend analysis, and trading recommendations",
+  "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build"
+  },
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
