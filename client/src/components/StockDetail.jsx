@@ -126,13 +126,31 @@ export default function StockDetail({ symbol, data, onBack }) {
 
       {/* Outlook */}
       <section>
-        <h2>Short-term outlook</h2>
+        <h2>Short-term outlook ({proj.horizon || '1-2 weeks'})</h2>
         <div className="card outlook">
-          <div className="label">Bias: {proj.bias}</div>
-          <div className="muted">{proj.summary}</div>
           <div className="outlook-row">
-            <div>Upside target: <b>₹{proj.shortTermTarget ?? '—'}</b></div>
-            <div>Downside floor: <b>₹{proj.shortTermFloor ?? '—'}</b></div>
+            <div>Bias: <b>{proj.bias}</b></div>
+            <div>Expected range: <b>₹{proj.projectedLow ?? '—'} – ₹{proj.projectedHigh ?? '—'}</b></div>
+            <div>
+              Expected move:{' '}
+              <b className={proj.expectedReturn >= 0 ? 'pos' : 'neg'}>
+                {proj.expectedReturn != null ? `${proj.expectedReturn >= 0 ? '+' : ''}${proj.expectedReturn.toFixed(1)}%` : '—'}
+              </b>
+            </div>
+          </div>
+          <div className="muted" style={{ marginTop: 10 }}>{proj.summary}</div>
+        </div>
+      </section>
+
+      {/* 1-2 week summary */}
+      <section>
+        <h2>What to expect in the next 1-2 weeks</h2>
+        <div className="card">
+          <p className="sum-text">{proj.summary}</p>
+          <div className="outlook-row">
+            <div>Upside to <b>₹{proj.shortTermTarget ?? '—'}</b> ({proj.upReturnPct != null ? `${proj.upReturnPct >= 0 ? '+' : ''}${proj.upReturnPct.toFixed(1)}%` : '—'})</div>
+            <div>Downside to <b>₹{proj.shortTermFloor ?? '—'}</b> ({proj.downReturnPct != null ? `${proj.downReturnPct >= 0 ? '+' : ''}${proj.downReturnPct.toFixed(1)}%` : '—'})</div>
+            <div>Indicators: RSI {ind.rsi != null ? ind.rsi.toFixed(1) : '—'} · MACD {sign(ind.macd, ind.macdSignal)}</div>
           </div>
         </div>
       </section>

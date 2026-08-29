@@ -56,6 +56,7 @@ export function analyze(candles) {
   const trend = trendAnalysis(candles, current);
   const signal = buildSignal(current, trend);
   const projection = projectTrend(current, trend);
+  projection.summary = buildSummary(current, trend, projection);
 
   return {
     indicators: current,
@@ -333,34 +334,102 @@ function buildSignal(cur, trend) {
 }
 
 function projectTrend(cur, trend) {
-  // Best-effort forward outlook based on trend & volatility.
+  const price = cur.price;
+  if (price == null || price <= 0) {
+    return {
+      bias: 'Neutral',
+      shortTermTarget: null,
+      shortTermFloor: null,
+      horizon: '1-2 weeks',
+    };
+  }
+
+  // Daily range proxy: ATR (or a fallback of ~2%).
+  const atr = cur.atr && cur.atr > 0 ? cur.atr : price * 0.02;
+
+  // Expected cumulative move over ~2 weeks of sessions: ATR * sqrt(N).
+  const horizon = 10;
+  const rangeVol = atr * Math.sqrt(horizon);
+
   let bias = 'Neutral';
   if (trend.direction === 'Uptrend' && trend.momentum !== 'Bearish') bias = 'Upward';
   else if (trend.direction === 'Downtrend' && trend.momentum !== 'Bullish') bias = 'Downward';
 
-  // A simple mean-reversion style short forecast toward EMA21
-  let target = cur.price;
-  if (cur.ema21 != null) {
-    const gap = (cur.ema21 - cur.price) / cur.price;
-    target = cur.price * (1 + gap * 0.3);
-  }
-  const horizon = cur.volatility != null ? cur.volatility : 3;
-  const upTarget = target * (1 + horizon / 200);
-  const downTarget = target * (1 - horizon / 200);
+  // Anchor to real levels when they are on the correct side of the price.
+  const resist = cur.resistance != null && cur.resistance > price ? cur.resistance : null;
+  const supp = cur.support != null && cur.support < price ? cur.support : null;
 
-  const outlook = {
+  // Upward level: use handy resistance when present, otherwise volatility envelope.
+  let upLevel = resist ?? price + rangeVol * (bias === 'Upward' ? 1.1 : 0.7);
+  // Downward level: use support when present, otherwise volatility envelope.
+  let downLevel = supp ?? price - rangeVol * (bias === 'Downward' ? 1.1 : 0.7);
+
+  // Guarantee sane ordering: target always above price, floor always below.
+  if (upLevel <= price) upLevel = price * 1.02;
+  if (downLevel >= price) downLevel = price * 0.98;
+  if (downLevel >= upLevel) {
+    downLevel = price * 0.96;
+    upLevel = price * 1.04;
+  }
+
+  // Expected drift depends on the bias (direction + momentum confluence).
+  const drift = bias === 'Upward' ? rangeVol * 0.35 : bias === 'Downward' ? -rangeVol * 0.35 : 0;
+  const expected = clamp(price + drift, downLevel, upLevel);
+
+  return {
     bias,
-    summary:
-      bias === 'Upward'
-        ? 'Trend and momentum lean upward in the near term.'
-        : bias === 'Downward'
-        ? 'Trend and momentum lean downward in the near term -- exercise caution.'
-        : 'Trend is mixed. Watch for a confirmed breakout before acting.',
-    shortTermTarget: round2(upTarget),
-    shortTermFloor: round2(downTarget),
+    shortTermTarget: round2(upLevel),
+    shortTermFloor: round2(downLevel),
+    expectedPrice: round2(expected),
+    expectedReturn: round2(((expected - price) / price) * 100),
+    upReturnPct: round2(((upLevel - price) / price) * 100),
+    downReturnPct: round2(((downLevel - price) / price) * 100),
+    projectedLow: round2(downLevel),
+    projectedHigh: round2(upLevel),
+    horizon: '1-2 weeks',
   };
-  return outlook;
 }
+
+function buildSummary(cur, trend, proj) {
+  const price = cur.price;
+  if (price == null) return 'Insufficient data to summarise.';
+
+  const parts = [];
+  parts.push(`Trading near ₹${price.toFixed(0)}.`);
+
+  // Trend alignment
+  if (trend.direction === 'Uptrend') parts.push('Price is in an uptrend, above its key moving averages.');
+  else if (trend.direction === 'Downtrend') parts.push('Price is in a downtrend, below its key moving averages.');
+  else parts.push('Price is moving sideways with no clear directional trend.');
+
+  // Momentum confluence (RSI + MACD)
+  const r = cur.rsi;
+  if (r != null) {
+    let rsiPhrase;
+    if (r >= 70) rsiPhrase = `RSI at ${r.toFixed(0)} signals it is overbought, raising pullback risk`;
+    else if (r <= 30) rsiPhrase = `RSI at ${r.toFixed(0)} is oversold, which often precedes a bounce`;
+    else if (r >= 55) rsiPhrase = `healthy RSI momentum at ${r.toFixed(0)} supports further upside`;
+    else if (r <= 45) rsiPhrase = `soft RSI momentum at ${r.toFixed(0)} suggests limited upside`;
+    else rsiPhrase = `RSI is neutral at ${r.toFixed(0)}`;
+    parts.push(rsiPhrase + '.');
+  }
+
+  if (cur.macd != null && cur.macdSignal != null) {
+    parts.push(cur.macd > cur.macdSignal ? 'MACD is above its signal line, confirming bullish momentum.' : 'MACD is below its signal line, confirming bearish momentum.');
+  }
+
+  // Support / Resistance (only cite levels on the correct side of price)
+  if (cur.support != null && cur.support < price) parts.push(`Immediate support sits near ₹${cur.support.toFixed(0)}.`);
+  if (cur.resistance != null && cur.resistance > price) parts.push(`Immediate resistance sits near ₹${cur.resistance.toFixed(0)}.`);
+
+  const rangeLow = proj.projectedLow ?? price;
+  const rangeHigh = proj.projectedHigh ?? price;
+  parts.push(`Over the next 1-2 weeks the stock is most likely to trade within a ₹${rangeLow.toFixed(0)}-${rangeHigh.toFixed(0)} range, with a bias to the ${trend.direction === 'Downtrend' ? 'downside' : 'upside'}.`);
+
+  return parts.join(' ');
+}
+
+function clamp(x, lo, hi) { return Math.min(Math.max(x, lo), hi); }
 
 function round2(x) {
   if (x == null || Number.isNaN(x)) return null;

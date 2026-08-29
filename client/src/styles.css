@@ -361,6 +361,12 @@ h2 { font-size: 17px; margin: 28px 0 12px; }
   flex-wrap: wrap;
 }
 
+.sum-text {
+  margin: 0 0 6px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
 .note { margin-top: 24px; }
 
 .spinner {
